@@ -1,98 +1,81 @@
+# app.py - Streamlit App untuk Deteksi Kepatuhan K3 Ruang Arsip
+
 import streamlit as st
 import cv2
-from PIL import Image
-import numpy as np
 import tempfile
-import torch
-from ultralytics import YOLO
 import os
+from PIL import Image
+from ultralytics import YOLO
+import torch
+import numpy as np
 
-# =============================
-# Konfigurasi Tampilan Streamlit
-# =============================
-st.set_page_config(
-    page_title="Deteksi Kepatuhan K3 Ruang Arsip",
-    layout="wide",
-    page_icon="🚀"
-)
+# --- Inisialisasi Model ---
+model = YOLO("best.pt")  # pastikan file best.pt ada di repo GitHub
 
+# --- Judul Aplikasi ---
+st.set_page_config(page_title="Deteksi K3 Ruang Arsip", layout="wide")
 st.markdown("""
-    <style>
-        .main {
-            background-color: #f8f9fa;
-        }
-        .title {
-            font-size: 32px;
-            color: #2c3e50;
-            font-weight: bold;
-        }
-        .subtitle {
-            font-size: 18px;
-            color: #7f8c8d;
-        }
-    </style>
+    <h1 style='text-align: center; color: #004080;'>
+        🚨 Sistem Deteksi Kepatuhan K3 Ruang Arsip
+    </h1>
+    <h4 style='text-align: center; color: gray;'>
+        Deteksi otomatis APD (Masker, Sarung Tangan, Sepatu) dan Objek K3 seperti APAR & Rambu
+    </h4>
+    <br>
 """, unsafe_allow_html=True)
 
-# =============================
-# Header
-# =============================
-st.markdown("<div class='title'>🌟 Sistem Deteksi Kepatuhan K3 Ruang Arsip</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>Berbasis YOLOv12 + Streamlit | Deteksi Masker, Sepatu, Sarung Tangan & Evaluasi Kepatuhan APD</div><br>", unsafe_allow_html=True)
+# --- Pilihan Input ---
+input_type = st.radio("Pilih metode input:", ["Upload Gambar", "Live Kamera"], horizontal=True)
 
-# =============================
-# Load Model YOLOv12
-# =============================
-@st.cache_resource
+# --- Fungsi Deteksi ---
+def deteksi_dan_visualisasi(img):
+    results = model(img)[0]
+    im_array = results.plot()
+    im_pil = Image.fromarray(im_array)
 
-def load_model():
-    model_path = os.path.join("model", "best.pt")
-    model = YOLO(model_path)
-    return model
+    # --- Hitung skor objek non-APD ---
+    skor = 0
+    label_k3 = []
+    for box in results.boxes:
+        label = model.names[int(box.cls)]
+        if label in ["APAR", "Jendela", "Rambu Evakuasi", "Sarung Tangan", "Masker", "Sepatu"]:
+            skor += 1
+            label_k3.append(label)
 
-model = load_model()
+    # --- Deteksi APD pada orang ---
+    apd = {"Masker": False, "Sarung Tangan": False, "Sepatu": False}
+    for label in label_k3:
+        if label in apd:
+            apd[label] = True
 
-# =============================
-# Fitur Pilihan: Upload atau Kamera
-# =============================
-option = st.radio("Pilih Metode Deteksi:", ("📷 Upload Gambar", "📹 Kamera Langsung"))
+    if all(apd.values()):
+        status_apd = "✅ APD Lengkap"
+    else:
+        status_apd = "❌ APD Tidak Lengkap"
 
-# =============================
-# Deteksi dari Gambar Upload
-# =============================
-if option == "📷 Upload Gambar":
-    uploaded_file = st.file_uploader("Upload gambar ruang arsip:", type=["jpg", "jpeg", "png"])
-    if uploaded_file is not None:
-        img = Image.open(uploaded_file).convert("RGB")
-        img_np = np.array(img)
+    st.image(im_pil, caption="Hasil Deteksi", use_column_width=True)
+    st.markdown(f"**Status APD:** {status_apd}")
+    st.markdown(f"**Tingkat Kepatuhan Ruangan:** {skor} poin dari deteksi objek")
 
-        # Jalankan deteksi YOLO
-        results = model.predict(source=img_np, conf=0.4, imgsz=640, device=0 if torch.cuda.is_available() else "cpu")
+# --- Upload Image ---
+if input_type == "Upload Gambar":
+    uploaded = st.file_uploader("Unggah gambar ruang arsip", type=["jpg", "png", "jpeg"])
+    if uploaded is not None:
+        file_bytes = np.asarray(bytearray(uploaded.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, 1)
+        deteksi_dan_visualisasi(img)
 
-        # Ambil hasil deteksi dan render gambar
-        rendered = results[0].plot()
+# --- Live Camera ---
+elif input_type == "Live Kamera":
+    st.warning("Fitur kamera hanya bekerja di perangkat lokal atau mobile yang didukung.")
+    cam = st.camera_input("Ambil gambar dari kamera langsung")
+    if cam is not None:
+        file_bytes = np.asarray(bytearray(cam.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, 1)
+        deteksi_dan_visualisasi(img)
 
-        st.image(rendered, caption="Hasil Deteksi K3", use_column_width=True)
-
-        # TODO: Tambahkan analisis skor dan status "APD Lengkap / Tidak Lengkap"
-
-# =============================
-# Deteksi dari Kamera Langsung
-# =============================
-elif option == "📹 Kamera Langsung":
-    stframe = st.empty()
-    run = st.checkbox("Mulai Kamera")
-    cap = cv2.VideoCapture(0)
-
-    while run:
-        ret, frame = cap.read()
-        if not ret:
-            st.error("Kamera tidak tersedia.")
-            break
-
-        results = model.predict(source=frame, conf=0.4, imgsz=640, device=0 if torch.cuda.is_available() else "cpu")
-        rendered = results[0].plot()
-
-        stframe.image(rendered, channels="BGR", use_column_width=True)
-
-    cap.release()
-    st.success("Deteksi kamera dihentikan.")
+# --- Footer ---
+st.markdown("""
+    <hr>
+    <center><small>Developed with ❤️ by [Universitas Hang Tuah Pekanbaru]</small></center>
+""", unsafe_allow_html=True)
