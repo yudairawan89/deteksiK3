@@ -10,7 +10,9 @@ import torch
 import numpy as np
 
 # --- Inisialisasi Model ---
-model = YOLO("best.pt")  # pastikan file best.pt ada di repo GitHub
+
+model_path = os.path.join(os.path.dirname(__file__), "best.pt")
+model = YOLO(model_path)
 
 # --- Judul Aplikasi ---
 st.set_page_config(page_title="Deteksi K3 Ruang Arsip", layout="wide")
