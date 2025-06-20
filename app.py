@@ -13,7 +13,7 @@ model = YOLO("best.torchscript")
 st.set_page_config(page_title="Deteksi K3 Ruang Arsip", layout="wide")
 st.markdown("""
     <h1 style='text-align: center; color: #004080;'>🚨 Sistem Deteksi Kepatuhan K3 Ruang Arsip</h1>
-    <h4 style='text-align: center; color: gray;'>Deteksi otomatis APD (Masker, Sarung Tangan, Sepatu) dan Objek K3 seperti APAR, Rambu, Ventilasi, dan Kabel</h4><br>
+    <h4 style='text-align: center; color: gray;'>Deteksi otomatis APD dan Objek K3 </h4><br>
 """, unsafe_allow_html=True)
 
 # --- Inisialisasi Session State ---
@@ -87,17 +87,17 @@ if st.button("🔍 Hitung Skor Akhir dari Semua Snapshot"):
 
     # Kategori Kepatuhan
     if skor >= 3:
-        status_kepatuhan = "✅ Tingkat Kepatuhan Ruangan: <strong>Patuh</strong>"
+        status_kepatuhan = "✅ Tingkat Kepatuhan K3 Pada Ruangan: <strong>Patuh</strong>"
     elif skor in [1, 2]:
-        status_kepatuhan = "⚠️ Tingkat Kepatuhan Ruangan: <strong>Kurang Patuh</strong>"
+        status_kepatuhan = "⚠️ Tingkat Kepatuhan K3 Pada Ruangan: <strong>Kurang Patuh</strong>"
     else:
-        status_kepatuhan = "❌ Tingkat Kepatuhan Ruangan: <strong>Tidak Patuh</strong>"
+        status_kepatuhan = "❌ Tingkat Kepatuhan K3 Pada Ruangan: <strong>Tidak Patuh</strong>"
 
     st.success(status_kepatuhan, icon="📊")
 
     # Laporan APD Orang dari Snapshot Terakhir
     apd = st.session_state.last_apd_status
-    st.markdown("### 👤 Status APD Individu (Snapshot Terakhir):")
+    st.markdown("### 👤 Status Kelengkapan APD Personil:")
     for key, val in apd.items():
         icon = "✅" if val else "❌"
         st.write(f"{icon} {key}")
@@ -109,11 +109,11 @@ if st.button("🔍 Hitung Skor Akhir dari Semua Snapshot"):
         st.info("🧰 Perlengkapan APD Terdeteksi: Tidak ada")
 
 # --- Reset ---
-if st.button("🔄 Reset Semua Snapshot"):
+if st.button("🔄 Reset"):
     st.session_state.detected_labels.clear()
     st.session_state.detected_images.clear()
     st.session_state.last_apd_status.clear()
     st.rerun()
 
 # --- Footer ---
-st.markdown("<hr><center><small>Developed with ❤️ by Universitas Hang Tuah Pekanbaru</small></center>", unsafe_allow_html=True)
+st.markdown("<hr><center><small>Developed by Universitas Hang Tuah Pekanbaru 2025</small></center>", unsafe_allow_html=True)
