@@ -1,4 +1,4 @@
-# app.py - Streamlit App untuk Deteksi Kepatuhan K3 Ruang Arsip (Full Snapshot & Laporan APD)
+# app.py - Streamlit App untuk Deteksi Kepatuhan K3 Ruang Arsip (Skor Penuh & Kategori Kepatuhan)
 
 import streamlit as st
 import cv2
@@ -13,7 +13,7 @@ model = YOLO("best.torchscript")
 st.set_page_config(page_title="Deteksi K3 Ruang Arsip", layout="wide")
 st.markdown("""
     <h1 style='text-align: center; color: #004080;'>🚨 Sistem Deteksi Kepatuhan K3 Ruang Arsip</h1>
-    <h4 style='text-align: center; color: gray;'>Deteksi otomatis APD (Masker, Sarung Tangan, Sepatu) dan Objek K3 seperti APAR & Rambu Evakuasi</h4><br>
+    <h4 style='text-align: center; color: gray;'>Deteksi otomatis APD (Masker, Sarung Tangan, Sepatu) dan Objek K3 seperti APAR, Rambu, Ventilasi, dan Kabel</h4><br>
 """, unsafe_allow_html=True)
 
 # --- Inisialisasi Session State ---
@@ -30,22 +30,19 @@ def deteksi_dan_visualisasi(img):
     im_array = results.plot()
     im_pil = Image.fromarray(im_array)
 
-    # Simpan hasil gambar ke list snapshot
     st.session_state.detected_images.append(im_pil)
 
-    # Label & Kategori
     label_k3 = []
     apd_labels = {"Masker": False, "Sarung Tangan": False, "Sepatu": False}
-    
+
     for box in results.boxes:
         label = model.names[int(box.cls)]
-        if label in ["APAR", "Jendela", "Rambu Evakuasi", "Sarung Tangan", "Masker", "Sepatu"]:
+        if label in ["APAR", "Jendela", "Rambu Evakuasi", "Sarung Tangan", "Masker", "Sepatu", "Kabel TidakRapi"]:
             label_k3.append(label)
             st.session_state.detected_labels.append(label)
             if label in apd_labels:
                 apd_labels[label] = True
 
-    # Simpan status APD terbaru
     st.session_state.last_apd_status = apd_labels
 
 # --- Input ---
@@ -77,17 +74,26 @@ if st.button("🔍 Hitung Skor Akhir dari Semua Snapshot"):
     semua_label = st.session_state.detected_labels
     unik = set(semua_label)
 
-    # Penilaian Kepatuhan
-    objek_k3_non_apd = {"APAR", "Jendela", "Rambu Evakuasi"}
-    jumlah_k3 = sum(1 for obj in unik if obj in objek_k3_non_apd)
+    # Skor Deteksi
+    skor = 0
+    if "APAR" in unik:
+        skor += 1
+    if "Rambu Evakuasi" in unik:
+        skor += 1
+    if "Jendela" in unik:
+        skor += 1
+    if "Kabel TidakRapi" in unik:
+        skor -= 1
 
-    # Evaluasi Patuh atau Tidak
-    if jumlah_k3 >= 2:
-        status_kepatuhan = "✅ Tingkat Kepatuhan Ruangan: **Patuh**"
+    # Kategori Kepatuhan
+    if skor >= 3:
+        status_kepatuhan = "✅ Tingkat Kepatuhan Ruangan: <strong>Patuh</strong>"
+    elif skor in [1, 2]:
+        status_kepatuhan = "⚠️ Tingkat Kepatuhan Ruangan: <strong>Kurang Patuh</strong>"
     else:
-        status_kepatuhan = "❌ Tingkat Kepatuhan Ruangan: **Tidak Patuh**"
+        status_kepatuhan = "❌ Tingkat Kepatuhan Ruangan: <strong>Tidak Patuh</strong>"
 
-    st.success(status_kepatuhan)
+    st.success(status_kepatuhan, icon="📊")
 
     # Laporan APD Orang dari Snapshot Terakhir
     apd = st.session_state.last_apd_status
@@ -96,7 +102,6 @@ if st.button("🔍 Hitung Skor Akhir dari Semua Snapshot"):
         icon = "✅" if val else "❌"
         st.write(f"{icon} {key}")
 
-    # Laporan APD yang berhasil terdeteksi
     apd_terdeteksi = [l for l in unik if l in ["Masker", "Sarung Tangan", "Sepatu"]]
     if apd_terdeteksi:
         st.info(f"🧰 Perlengkapan APD Terdeteksi: {', '.join(sorted(apd_terdeteksi))}")
