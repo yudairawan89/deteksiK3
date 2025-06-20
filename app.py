@@ -1,4 +1,4 @@
-# app.py - Streamlit App untuk Deteksi Kepatuhan K3 Ruang Arsip (Full Snapshot & Laporan APD)
+# app.py - Streamlit App untuk Deteksi Kepatuhan K3 Ruang Arsip (dengan hapus snapshot individu)
 
 import streamlit as st
 import cv2
@@ -65,11 +65,19 @@ elif input_type == "Snapshot Kamera":
         img = cv2.imdecode(file_bytes, 1)
         deteksi_dan_visualisasi(img)
 
-# --- Tampilkan Semua Snapshot ---
+# --- Tampilkan Semua Snapshot + Tombol Hapus ---
 if st.session_state.detected_images:
     st.markdown("## 📸 Snapshot Deteksi Sebelumnya:")
     for i, gambar in enumerate(st.session_state.detected_images):
-        st.image(gambar, caption=f"Hasil Deteksi #{i+1}", use_column_width=True)
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            st.image(gambar, caption=f"Hasil Deteksi #{i+1}", use_column_width=True)
+        with col2:
+            if st.button(f"❌ Hapus Gambar #{i+1}", key=f"hapus_{i}"):
+                # Hapus snapshot ke-i dan rerun
+                del st.session_state.detected_images[i]
+                st.session_state.detected_labels = []  # Reset label (karena tidak terpisah per snapshot)
+                st.rerun()
 
 # --- Hitung Skor Akhir ---
 st.markdown("---")
@@ -77,7 +85,6 @@ if st.button("🔍 Hitung Skor Akhir dari Semua Snapshot"):
     semua_label = st.session_state.detected_labels
     unik = set(semua_label)
 
-    # Penilaian Kepatuhan
     objek_k3_non_apd = {"APAR", "Jendela", "Rambu Evakuasi"}
     jumlah_k3 = sum(1 for obj in unik if obj in objek_k3_non_apd)
 
@@ -103,7 +110,7 @@ if st.button("🔍 Hitung Skor Akhir dari Semua Snapshot"):
     else:
         st.info("🧰 Perlengkapan APD Terdeteksi: Tidak ada")
 
-# --- Reset ---
+# --- Reset Semua ---
 if st.button("🔄 Reset Semua Snapshot"):
     st.session_state.detected_labels.clear()
     st.session_state.detected_images.clear()
