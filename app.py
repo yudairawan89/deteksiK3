@@ -11,8 +11,8 @@ import numpy as np
 
 # --- Inisialisasi Model ---
 
-model_path = os.path.join(os.path.dirname(__file__), "best.pt")
-model = YOLO(model_path)
+model = YOLO("best.torchscript")
+
 
 # --- Judul Aplikasi ---
 st.set_page_config(page_title="Deteksi K3 Ruang Arsip", layout="wide")
